@@ -6,11 +6,11 @@ from datetime import datetime, date, timedelta
 
 startRange = datetime.today() + timedelta(days=1)
 endRange = datetime.today() + timedelta(days=365)
-#print(startRange.strftime("%d/%m/%Y"))
-#print(endRange.strftime("%d/%m/%Y"))
+
 
 destparams = {
-	"fly_from": 'airport:MAN',
+	"fly_from": 'airport:BRS',
+	#"fly_to" : 'airport:SXF',
     "one_for_city" : 1,
     "date_from" : '%s' % (startRange.strftime("%d/%m/%Y")),
     "date_to" : '%s' % (endRange.strftime("%d/%m/%Y")),
@@ -23,8 +23,8 @@ destparams = {
 
 
 parameters = {
-    "fly_from": 'airport:MAN',
-    #"fly_to": 'airport:DUB',
+    "fly_from": 'airport:BRS',
+    #"fly_to": 'airport:SXF',
     #"one_for_city" : 1,
     "date_from" : '%s' % (startRange.strftime("%d/%m/%Y")),
     "date_to" : '%s' % (endRange.strftime("%d/%m/%Y")),
@@ -91,39 +91,51 @@ def Sort(sub_li):
     sub_li.sort(key = lambda x: x[0]) 
     return sub_li 
 
-
-
-response = requests.get("https://api.skypicker.com/flights", params=destparams)
-destinations = response.json()['data']
 varss = []
 
+response = requests.get("https://api.skypicker.com/flights", params=destparams)
+#jprint(response.json())
+try: 
+	destinations = response.json()['data']
+except KeyError:
+	sys.exit("No Desinations Found")
+
 for airport in destinations:
-	parameters.update({"fly_to" : "airport:%s" % (airport['cityCodeTo'])})
-	#print(parameters)
-	response2 = requests.get("https://api.skypicker.com/flights", params=parameters)
+	z = datetime.utcfromtimestamp(airport['route'][0]['dTime']).strftime('%Y-%m-%d %H:%M:%S')
+	print("Checking [%s] Cheapest One Way: On: %s @ £%s" % (airport['cityTo'],z ,airport['price']))
 	
+	parameters.update({"fly_to" : "airport:%s" % (airport['flyTo'])})
+	
+	response2 = requests.get("https://api.skypicker.com/flights", params=parameters)
+	#jprint(response2.json())
+	ar = []
 	try: 
 		a = response2.json()['data']
-		for b in a:
-			ar = []
-			z = datetime.utcfromtimestamp(airport['route'][0]['dTime']).strftime('%Y-%m-%d %H:%M:%S')
-			print("Checking [%s] Cheapest One Way: On: %s @ £%s" % (b['cityTo'],z ,airport['price']))
-			ar.append(int(b['price']))
-			ar.append(tiny_url(b['deep_link']))
-			ar.append(b['cityCodeTo'])
-			ar.append(b['cityTo'])
-			ar.append(datetime.utcfromtimestamp(b['route'][0]['dTime']).strftime('%Y-%m-%d %H:%M:%S'))
-			ar.append(datetime.utcfromtimestamp(b['route'][1]['dTime']).strftime('%Y-%m-%d %H:%M:%S'))
-			#print(tiny_url(b['deep_link']))
+		if a == []:
+			ar.append(0)	
+			ar.append('Error')
+			ar.append(airport['cityTo'])
 			varss.append(ar)
+		else:
+			for b in a:
+				ar.append(int(b['price']))
+				ar.append(tiny_url(b['deep_link']))
+				ar.append(b['cityCodeTo'])
+				ar.append(b['cityTo'])
+				ar.append(datetime.utcfromtimestamp(b['route'][0]['dTime']).strftime('%Y-%m-%d %H:%M:%S'))
+				ar.append(datetime.utcfromtimestamp(b['route'][1]['dTime']).strftime('%Y-%m-%d %H:%M:%S'))
+				#print(tiny_url(b['deep_link']))
+				varss.append(ar)
 	except KeyError:
-		continue
+			continue
 
 Sort(varss)
 
+print()
+print('-----------Results-----------')
+
 for x in varss:
-	if x[0] == "Error":
-		continue
+	if x[1] == "Error":
+		print("No Weekend Flights To: %s  " % (x[2]))
 	else:
 		print("Weekend in: %s Fly Out: %s  Return: %s for £%s @ %s " % (x[3], x[4], x[5], str(x[0]), x[1]))
-
